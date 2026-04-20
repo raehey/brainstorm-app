@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const THEMES = {
   purple:{ name:"보라",emoji:"💜",primary:"#6D28D9",light:"#EDE9FE",border:"#C4B5FD",soft:"#F8F7FF",grad:"160deg,#EDE9FE,#F8F7FF",text:"#4C1D95",sub:"#A78BFA",dim:"#DDD6FE" },
@@ -24,16 +24,16 @@ const BC = [
   {bg:"#FDF4FF",border:"#E879F9",text:"#701A75"},
 ];
 
-const MAX=6, HINTS=["커피","여행","창업","주식","건강","음악"];
+const MAX=6, HINTS=["커피","주식","여행","창업","건강","음악"];
 const countFor = s => s<=2?8:s<=4?6:4;
 const font="'Pretendard','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif";
 const CSS=`
   @keyframes bnc{0%,80%,100%{transform:scale(0.8);opacity:0.4}40%{transform:scale(1.3);opacity:1}}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
   @keyframes slideIn{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:translateX(0)}}
-  @keyframes wobble{0%,100%{transform:rotate(-8deg) scale(1)}25%{transform:rotate(8deg) scale(1.08)}50%{transform:rotate(-5deg) scale(1.04)}75%{transform:rotate(6deg) scale(1.06)}}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
   @keyframes eyeBlink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(0.1)}}
-  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 `;
 
 function useSound(on) {
@@ -92,19 +92,71 @@ function Bubble({word,color,size,selected,onClick,ripple}){
   const py=size==="lg"?22:size==="md"?18:14;
   const lines=word.length>7?[word.slice(0,Math.ceil(word.length/2)),word.slice(Math.ceil(word.length/2))]:[word];
   return (
-    <button onClick={onClick} style={{
-      width:"100%", padding:`${py}px 12px`,
-      background:selected?color.border:color.bg,
-      border:`2px solid ${color.border}`,
-      borderRadius:9999, cursor:"pointer", fontFamily:font,
-      fontSize:fs, fontWeight:700, color:selected?"#fff":color.text,
-      transition:"all 0.18s ease",
-      transform:selected?"scale(0.95)":"scale(1)",
-      boxShadow:ripple?`0 0 18px ${color.border}bb`:selected?`0 4px 16px ${color.border}88`:"none",
-      textAlign:"center", lineHeight:1.5,
-    }}>
+    <button onClick={onClick} style={{width:"100%",padding:`${py}px 12px`,background:selected?color.border:color.bg,border:`2px solid ${color.border}`,borderRadius:9999,cursor:"pointer",fontFamily:font,fontSize:fs,fontWeight:700,color:selected?"#fff":color.text,transition:"all 0.18s ease",transform:selected?"scale(0.95)":"scale(1)",boxShadow:ripple?`0 0 18px ${color.border}bb`:selected?`0 4px 16px ${color.border}88`:"none",textAlign:"center",lineHeight:1.5}}>
       {lines.map((ln,i)=><span key={i} style={{display:"block"}}>{ln}</span>)}
     </button>
+  );
+}
+
+function AiChat({t, path, fw, persona}) {
+  const [msgs,setMsgs]=useState([{role:"assistant",text:`"${fw}" 탐색 결과에 대해 궁금한 게 있으면 뭐든 물어보세요 😊`}]);
+  const [inp,setInp]=useState("");
+  const [loading,setLoading]=useState(false);
+  const bottomRef=useRef(null);
+  const PERSONA_PROMPT = {
+    friend:"친한 친구처럼 편하고 따뜻하게 반말로",
+    coach:"열정적인 코치처럼 동기부여하며 직접적으로",
+    poet:"감성적인 시인처럼 시적으로",
+    philosopher:"깊은 철학자처럼 통찰력 있게",
+  }[persona]||"친구처럼";
+
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[msgs]);
+
+  async function send(){
+    if(!inp.trim()||loading)return;
+    const userMsg=inp.trim(); setInp("");
+    setMsgs(m=>[...m,{role:"user",text:userMsg}]);
+    setLoading(true);
+    try {
+      const history=msgs.slice(1).map(m=>({role:m.role,content:m.text}));
+      const res=await fetch("/api/brainstorm",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({mode:"chat",path,fw,persona,message:userMsg,history})});
+      const data=await res.json();
+      setMsgs(m=>[...m,{role:"assistant",text:data.reply||"다시 물어봐줘!"}]);
+    } catch { setMsgs(m=>[...m,{role:"assistant",text:"앗, 오류가 났어요. 다시 시도해주세요!"}]); }
+    setLoading(false);
+  }
+
+  return (
+    <div style={{border:`1.5px solid ${t.border}`,borderRadius:20,overflow:"hidden",marginBottom:12}}>
+      <div style={{background:t.light,padding:"12px 16px",display:"flex",alignItems:"center",gap:8}}>
+        <span style={{fontSize:16}}>💬</span>
+        <span style={{fontSize:13,fontWeight:800,color:t.text}}>AI와 대화하기</span>
+        <span style={{marginLeft:"auto",fontSize:11,color:t.sub}}>추가 질문 가능해요</span>
+      </div>
+      <div style={{background:"#fff",padding:"12px",maxHeight:260,overflowY:"auto"}}>
+        {msgs.map((m,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",marginBottom:8,animation:"msgIn 0.25s ease"}}>
+            <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:m.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",background:m.role==="user"?t.primary:t.light,color:m.role==="user"?"#fff":t.text,fontSize:13,lineHeight:1.6,fontFamily:font}}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {loading&&(
+          <div style={{display:"flex",gap:4,padding:"8px 14px"}}>
+            {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:"50%",background:t.border,animation:`bnc 1s ${i*0.15}s infinite`}}/>)}
+          </div>
+        )}
+        <div ref={bottomRef}/>
+      </div>
+      <div style={{background:"#fff",borderTop:`1px solid ${t.border}`,padding:"10px 12px",display:"flex",gap:8}}>
+        <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()}
+          placeholder="궁금한 것을 물어보세요..."
+          style={{flex:1,minWidth:0,fontSize:13,padding:"9px 14px",border:`1.5px solid ${t.border}`,borderRadius:12,outline:"none",fontFamily:font,background:t.soft}}/>
+        <button onClick={send} disabled={!inp.trim()||loading}
+          style={{padding:"9px 16px",borderRadius:12,background:t.primary,color:"#fff",border:"none",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:font,flexShrink:0}}>전송</button>
+      </div>
+    </div>
   );
 }
 
@@ -113,7 +165,7 @@ function Onboarding({t, onDone}) {
   const slides=[
     {e:"🧠",ti:"브레인스토밍",d:"머릿속 생각을\n단어로 꺼내보세요"},
     {e:"🔗",ti:"연결하고 탐색",d:"6단계를 거쳐\n생각이 이어져요"},
-    {e:"✨",ti:"AI 맞춤 제안",d:"직업·할일·투자 테마까지\n꼭 맞는 제안을 해드려요"},
+    {e:"✨",ti:"AI 맞춤 제안",d:"직업·할일·투자까지\nAI와 대화할 수 있어요"},
   ];
   const s=slides[idx];
   return (
@@ -191,14 +243,29 @@ export default function App(){
   const [hist,setHist]=useState([]);
   const [ripple,setRipple]=useState(null);
   const [err,setErr]=useState("");
+  const [copied,setCopied]=useState(false);
   const play=useSound(snd);
   const t=THEMES[tk];
   const isFinal=si===MAX-1;
   const vw=words.slice(0,countFor(si+1));
   const bsz=vw.length<=4?"lg":vw.length<=6?"md":"sm";
 
-  async function fetchWords(topic, count) {
-    const res=await fetch("/api/brainstorm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic,count})});
+  // 공유 링크로 접속 시 결과 바로 표시
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const sharedPath=params.get("path");
+    const sharedFw=params.get("fw");
+    if(sharedPath&&sharedFw){
+      const p=sharedPath.split(",").map(w=>w.trim()).filter(Boolean);
+      setPath(p); setFw(sharedFw);
+      setAi({action:"공유된 결과예요! 직접 탐색해서 나만의 결과를 만들어보세요.",mood:"열린 마음으로 탐색을 시작해보세요.",job:"이 흐름과 어울리는 다양한 역할이 있어요.",todo:"① 직접 탐색해보기\n② 결과 비교하기\n③ 나만의 경로 만들기",tip:"같은 시작, 다른 경로 — 당신만의 답을 찾아보세요."});
+      setScreen("result");
+    }
+  },[]);
+
+  async function fetchWords(topic, count, exclude=[]) {
+    const res=await fetch("/api/brainstorm",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({topic,count,exclude})});
     const data=await res.json();
     return data.words||[];
   }
@@ -207,7 +274,7 @@ export default function App(){
     if(!topic.trim())return;
     setErr(""); setScreen("loading");
     try {
-      const ws=await fetchWords(topic, countFor(1));
+      const ws=await fetchWords(topic,countFor(1),[]);
       if(ws.length<2){setErr("다시 시도해주세요.");setScreen("home");return;}
       setPath([topic]); setWords(ws); setSi(0); setSel(null); setScreen("game");
     } catch { setErr("오류가 발생했어요."); setScreen("home"); }
@@ -227,7 +294,8 @@ export default function App(){
     if(isFinal){
       setFw(word); setScreen("loading");
       try {
-        const res=await fetch("/api/brainstorm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic:word,path:np,mode:"suggest",persona})});
+        const res=await fetch("/api/brainstorm",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({topic:word,path:np,mode:"suggest",persona})});
         const data=await res.json();
         play("done");
         setAi(data);
@@ -238,7 +306,7 @@ export default function App(){
     } else {
       setScreen("loading");
       try {
-        const ws=await fetchWords(word, countFor(si+2));
+        const ws=await fetchWords(word,countFor(si+2),np);
         if(ws.length>=2){setWords(ws);setSi(si+1);setScreen("game");}
         else{setErr("다시 시도해주세요.");setScreen("game");}
       } catch { setErr("오류가 발생했어요."); setScreen("game"); }
@@ -248,6 +316,12 @@ export default function App(){
   function restart(){
     setScreen("home"); setInp(""); setPath([]); setWords([]);
     setSi(0); setSel(null); setAi(null); setFw(null); setErr("");
+    window.history.replaceState({},"",window.location.pathname);
+  }
+
+  function shareLink(){
+    const url=`${window.location.origin}?path=${encodeURIComponent(path.join(","))}&fw=${encodeURIComponent(fw||"")}`;
+    navigator.clipboard.writeText(url).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});
   }
 
   if(screen==="onboarding") return <Onboarding t={t} onDone={()=>setScreen("home")}/>;
@@ -290,7 +364,12 @@ export default function App(){
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
           <button onClick={restart} style={{width:34,height:34,borderRadius:10,background:t.light,border:"none",cursor:"pointer",fontSize:15,color:t.primary}}>←</button>
           <span style={{fontSize:12,color:t.sub,fontWeight:700}}>완료 🎉</span>
-          <button onClick={()=>exportImage(path,fw,ai,tk)} style={{padding:"6px 14px",borderRadius:12,background:t.light,border:`1.5px solid ${t.border}`,color:t.primary,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font}}>🖼️ 저장</button>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={shareLink} style={{padding:"6px 12px",borderRadius:12,background:copied?"#ECFDF5":t.light,border:`1.5px solid ${copied?"#6EE7B7":t.border}`,color:copied?"#065F46":t.primary,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font,transition:"all 0.2s"}}>
+              {copied?"✓ 복사됨!":"🔗 공유"}
+            </button>
+            <button onClick={()=>exportImage(path,fw,ai,tk)} style={{padding:"6px 12px",borderRadius:12,background:t.light,border:`1.5px solid ${t.border}`,color:t.primary,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font}}>🖼️</button>
+          </div>
         </div>
         <p style={{fontSize:11,color:t.dim,margin:"0 0 8px",fontWeight:600,letterSpacing:"0.05em"}}>탐색 경로</p>
         <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:16}}>
@@ -327,8 +406,8 @@ export default function App(){
           </div>
         ))}
 
-        {ai?.invest && (
-          <div style={{border:"1.5px solid #FCD34D",borderRadius:20,overflow:"hidden",marginBottom:10,animation:"fadeUp 0.5s 0.35s both ease"}}>
+        {ai?.invest&&(
+          <div style={{border:"1.5px solid #FCD34D",borderRadius:20,overflow:"hidden",marginBottom:10}}>
             <div style={{background:"#FEF3C7",padding:"12px 18px",display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:18}}>📈</span>
               <span style={{fontSize:13,fontWeight:800,color:"#78350F"}}>투자 참고 정보</span>
@@ -350,6 +429,7 @@ export default function App(){
           </div>
         )}
 
+        <AiChat t={t} path={path} fw={fw} persona={persona}/>
         <button onClick={restart} style={{width:"100%",marginTop:8,padding:"16px",borderRadius:18,background:t.primary,color:"#fff",border:"none",fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:font}}>다시 탐색하기</button>
       </div>
     </div>
@@ -368,7 +448,6 @@ export default function App(){
           <span style={{fontSize:11,color:t.sub,fontWeight:700}}>{PERSONAS[persona].name} 모드</span>
         </div>
       </div>
-
       <div style={{background:"#fff",borderRadius:24,padding:"20px",marginBottom:20,boxShadow:`0 4px 24px ${t.border}44`,border:`1.5px solid ${t.border}`}}>
         <p style={{fontSize:12,color:t.dim,margin:"0 0 10px",fontWeight:600}}>시작 단어 입력</p>
         <div style={{display:"flex",gap:8}}>
@@ -379,14 +458,10 @@ export default function App(){
         </div>
         {err&&<p style={{color:"#EF4444",fontSize:13,margin:"8px 0 0"}}>{err}</p>}
       </div>
-
       <p style={{fontSize:12,color:t.dim,margin:"0 0 10px",fontWeight:600,paddingLeft:4}}>추천 주제</p>
       <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:28}}>
-        {HINTS.map((s,i)=>(
-          <button key={s} onClick={()=>startGame(s)} style={{fontSize:14,padding:"9px 18px",borderRadius:20,color:BC[i].text,background:BC[i].bg,border:`1.5px solid ${BC[i].border}`,cursor:"pointer",fontWeight:700,fontFamily:font}}>{s}</button>
-        ))}
+        {HINTS.map((s,i)=>(<button key={s} onClick={()=>startGame(s)} style={{fontSize:14,padding:"9px 18px",borderRadius:20,color:BC[i].text,background:BC[i].bg,border:`1.5px solid ${BC[i].border}`,cursor:"pointer",fontWeight:700,fontFamily:font}}>{s}</button>))}
       </div>
-
       {hist.length>0&&(
         <>
           <p style={{fontSize:12,color:t.dim,fontWeight:600,margin:"0 0 10px",paddingLeft:4}}>최근 탐색</p>
@@ -412,9 +487,7 @@ export default function App(){
           <button onClick={()=>{if(si===0)setScreen("home");else{setSi(si-1);setPath(path.slice(0,-1));setSel(null);}}}
             style={{width:34,height:34,borderRadius:10,background:t.light,border:"none",cursor:"pointer",fontSize:15,color:t.primary}}>←</button>
           <div style={{display:"flex",gap:5}}>
-            {Array.from({length:MAX},(_,i)=>(
-              <div key={i} style={{width:i<=si?20:7,height:7,borderRadius:20,background:i<si?t.border:i===si?(isFinal?"#F59E0B":t.primary):t.light,transition:"all 0.4s"}}/>
-            ))}
+            {Array.from({length:MAX},(_,i)=>(<div key={i} style={{width:i<=si?20:7,height:7,borderRadius:20,background:i<si?t.border:i===si?(isFinal?"#F59E0B":t.primary):t.light,transition:"all 0.4s"}}/>))}
           </div>
           <div style={{background:isFinal?"#FEF3C7":t.light,borderRadius:12,padding:"5px 12px",fontSize:12,color:isFinal?"#D97706":t.primary,fontWeight:700}}>
             {isFinal?"마지막 🎯":`${si+1}/${MAX}`}
@@ -447,9 +520,7 @@ export default function App(){
         </p>
       </div>
       <div style={{padding:"0 20px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        {vw.map((word,i)=>(
-          <Bubble key={word+i} word={word} color={BC[i%BC.length]} size={bsz} selected={sel===i} onClick={()=>handleSel(i)} ripple={ripple===i}/>
-        ))}
+        {vw.map((word,i)=>(<Bubble key={word+i} word={word} color={BC[i%BC.length]} size={bsz} selected={sel===i} onClick={()=>handleSel(i)} ripple={ripple===i}/>))}
       </div>
       {sel!==null&&(
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:390,padding:"16px 20px",background:"#fff",borderTop:`1px solid ${t.border}`}}>
