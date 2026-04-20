@@ -13,7 +13,7 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20241022",
+        model: "claude-3-haiku-20240307",
         max_tokens: 250,
         messages: [{
           role: "user",
@@ -23,15 +23,20 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+
+    if (data.error) {
+      return res.status(200).json({ words: [], debug: data.error });
+    }
+
     const raw = data.content?.map(b => b.text || "").join("") || "";
     const words = raw
       .split(/[,，、\n]/)
-      .map(w => w.trim().replace(/^\d+\.\s*/, "").replace(/[^\w\s가-힣]/g, "").trim())
+      .map(w => w.trim().replace(/^\d+\.\s*/, "").trim())
       .filter(w => w.length > 0 && w.length <= 10)
       .slice(0, count);
 
-    res.status(200).json({ words });
+    res.status(200).json({ words, debug: raw });
   } catch (e) {
-    res.status(500).json({ error: "API 오류가 발생했어요." });
+    res.status(500).json({ error: e.message });
   }
 }
