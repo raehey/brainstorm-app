@@ -1,278 +1,410 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
-const COLORS = [
-  { bg: "#F0EBFF", border: "#C4B5FD", text: "#5B21B6" },
-  { bg: "#ECFDF5", border: "#6EE7B7", text: "#065F46" },
-  { bg: "#FFF7ED", border: "#FCD34D", text: "#92400E" },
-  { bg: "#FFF1F2", border: "#FDA4AF", text: "#9F1239" },
-  { bg: "#EFF6FF", border: "#93C5FD", text: "#1E40AF" },
-  { bg: "#F0FDF4", border: "#86EFAC", text: "#166534" },
-  { bg: "#FFFBEB", border: "#FDE68A", text: "#78350F" },
-  { bg: "#FDF4FF", border: "#E879F9", text: "#701A75" },
+const THEMES = {
+  purple:{ name:"보라",emoji:"💜",primary:"#6D28D9",light:"#EDE9FE",border:"#C4B5FD",soft:"#F8F7FF",grad:"160deg,#EDE9FE,#F8F7FF",text:"#4C1D95",sub:"#A78BFA",dim:"#DDD6FE" },
+  blue:  { name:"파랑",emoji:"💙",primary:"#1D4ED8",light:"#EFF6FF",border:"#93C5FD",soft:"#F0F9FF",grad:"160deg,#DBEAFE,#F0F9FF",text:"#1E3A8A",sub:"#60A5FA",dim:"#BFDBFE" },
+  green: { name:"초록",emoji:"💚",primary:"#15803D",light:"#ECFDF5",border:"#6EE7B7",soft:"#F0FDF4",grad:"160deg,#D1FAE5,#F0FDF4",text:"#14532D",sub:"#4ADE80",dim:"#BBF7D0" },
+  orange:{ name:"주황",emoji:"🧡",primary:"#C2410C",light:"#FFF7ED",border:"#FCD34D",soft:"#FFFBEB",grad:"160deg,#FEF3C7,#FFFBEB",text:"#78350F",sub:"#FBbf24",dim:"#FDE68A" },
+  pink:  { name:"핑크",emoji:"🩷",primary:"#9D174D",light:"#FDF2F8",border:"#F9A8D4",soft:"#FFF5F9",grad:"160deg,#FCE7F3,#FFF5F9",text:"#831843",sub:"#F472B6",dim:"#FBCFE8" },
+};
+const PERSONAS = {
+  friend:     { name:"친구처럼",emoji:"🤝",desc:"편하고 따뜻하게" },
+  coach:      { name:"코치처럼",emoji:"💪",desc:"동기부여하고 직접적으로" },
+  poet:       { name:"시인처럼",emoji:"🌸",desc:"감성적이고 시적으로" },
+  philosopher:{ name:"철학자처럼",emoji:"🧐",desc:"깊고 통찰력 있게" },
+};
+const BC = [
+  {bg:"#F0EBFF",border:"#C4B5FD",text:"#5B21B6"},
+  {bg:"#ECFDF5",border:"#6EE7B7",text:"#065F46"},
+  {bg:"#FFF7ED",border:"#FCD34D",text:"#92400E"},
+  {bg:"#FFF1F2",border:"#FDA4AF",text:"#9F1239"},
+  {bg:"#EFF6FF",border:"#93C5FD",text:"#1E40AF"},
+  {bg:"#F0FDF4",border:"#86EFAC",text:"#166534"},
+  {bg:"#FFFBEB",border:"#FDE68A",text:"#78350F"},
+  {bg:"#FDF4FF",border:"#E879F9",text:"#701A75"},
 ];
 
-const MAX = 6;
-const HINTS = ["커피", "여행", "창업", "독서", "건강", "음악"];
-const countFor = s => s <= 2 ? 8 : s <= 4 ? 6 : 4;
-const font = "'Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif";
+const MAX=6, HINTS=["커피","여행","창업","독서","건강","음악"];
+const countFor = s => s<=2?8:s<=4?6:4;
+const font="'Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif";
+const CSS=`
+  @keyframes bnc{0%,80%,100%{transform:scale(0.8);opacity:0.4}40%{transform:scale(1.3);opacity:1}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes slideIn{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:translateX(0)}}
+`;
 
-export default function App() {
-  const [screen, setScreen] = useState("home"); // home | game | loading | result
-  const [inp, setInp] = useState("");
-  const [stageIdx, setStageIdx] = useState(0);
-  const [words, setWords] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [path, setPath] = useState([]);
-  const [finalWord, setFinalWord] = useState(null);
-  const [ai, setAi] = useState(null);
-  const [err, setErr] = useState("");
+function useSound(on) {
+  const ctx=useRef(null);
+  function gc(){if(!ctx.current)ctx.current=new(window.AudioContext||window.webkitAudioContext)();return ctx.current;}
+  return type=>{
+    if(!on)return;
+    try{
+      const ac=gc();
+      if(type==="select"){const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.setValueAtTime(520,ac.currentTime);o.frequency.exponentialRampToValueAtTime(700,ac.currentTime+0.1);g.gain.setValueAtTime(0.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.15);o.start();o.stop(ac.currentTime+0.15);}
+      else if(type==="next"){const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.setValueAtTime(440,ac.currentTime);o.frequency.exponentialRampToValueAtTime(880,ac.currentTime+0.15);g.gain.setValueAtTime(0.08,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.2);o.start();o.stop(ac.currentTime+0.2);}
+      else if(type==="done"){[0,0.12,0.24].forEach((t,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=[523,659,784][i];g.gain.setValueAtTime(0.1,ac.currentTime+t);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+t+0.25);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+0.25);});}
+    }catch{}
+  };
+}
 
-  const isFinal = stageIdx === MAX - 1;
-  const visibleWords = words.slice(0, countFor(stageIdx + 1));
+function exportImage(path, fw, ai, themeKey) {
+  const t=THEMES[themeKey];
+  const cv=document.createElement('canvas'); cv.width=1080; cv.height=1080;
+  const c=cv.getContext('2d');
+  const gr=c.createLinearGradient(0,0,1080,1080); gr.addColorStop(0,t.light); gr.addColorStop(1,t.soft);
+  c.fillStyle=gr; c.fillRect(0,0,1080,1080);
+  c.fillStyle=t.primary; c.fillRect(0,0,1080,10);
+  c.font='bold 54px system-ui'; c.fillStyle=t.text; c.fillText('🧠 브레인스토밍 결과',80,110);
+  let px=80;
+  c.font='bold 26px system-ui';
+  path.forEach((w,i)=>{
+    const col=BC[i%BC.length]; const tw=c.measureText(w).width+40;
+    c.fillStyle=col.border; rr(c,px,137,tw,42,21); c.fillStyle='#fff'; c.fillText(w,px+20,165);
+    px+=tw+12; if(i<path.length-1){c.fillStyle=t.dim;c.fillText('→',px,165);px+=32;}
+  });
+  c.fillStyle=t.primary; rr(c,80,200,920,120,28);
+  c.fillStyle='#fff'; c.font='bold 30px system-ui'; c.fillText('최종 키워드',110,252);
+  c.font='bold 60px system-ui'; c.fillText('🎯 '+(fw||''),110,330);
+  const cards=[
+    {icon:'🎬',title:'지금 이걸 해보세요',text:ai?.action||''},
+    {icon:'💼',title:'추천 직업',text:ai?.job||''},
+    {icon:'📋',title:'오늘의 할 일',text:ai?.todo||''},
+  ];
+  cards.forEach((card,i)=>{
+    const y=370+i*210;
+    c.fillStyle='rgba(255,255,255,0.9)'; rr(c,80,y,920,190,24);
+    c.fillStyle=t.text; c.font='bold 28px system-ui'; c.fillText(card.icon+' '+card.title,110,y+48);
+    c.fillStyle='#374151'; c.font='24px system-ui';
+    const ws=card.text.split(' '); let line='',ly=y+90;
+    ws.forEach(w=>{const test=line+w+' ';if(c.measureText(test).width>860&&line){c.fillText(line.trim(),110,ly);line=w+' ';ly+=34;}else line=test;});
+    if(line)c.fillText(line.trim(),110,ly);
+  });
+  c.fillStyle=t.dim; c.font='22px system-ui'; c.fillText('brainstorm-app-eight.vercel.app',80,1050);
+  function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();}
+  cv.toBlob(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='brainstorm.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+}
 
-  async function fetchWords(topic) {
-    const res = await fetch("/api/brainstorm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, count: countFor(1) })
-    });
-    const data = await res.json();
-    return data.words || [];
+function Bubble({word,color,size,selected,onClick,ripple}){
+  const fs=size==="lg"?16:size==="md"?14:12;
+  const py=size==="lg"?22:size==="md"?18:14;
+  const lines=word.length>7?[word.slice(0,Math.ceil(word.length/2)),word.slice(Math.ceil(word.length/2))]:[word];
+  return (
+    <button onClick={onClick} style={{
+      width:"100%", padding:`${py}px 12px`,
+      background:selected?color.border:color.bg,
+      border:`2px solid ${color.border}`,
+      borderRadius:9999, cursor:"pointer", fontFamily:font,
+      fontSize:fs, fontWeight:700, color:selected?"#fff":color.text,
+      transition:"all 0.18s ease",
+      transform:selected?"scale(0.95)":"scale(1)",
+      boxShadow:ripple?`0 0 18px ${color.border}bb`:selected?`0 4px 16px ${color.border}88`:"none",
+      textAlign:"center", lineHeight:1.5,
+    }}>
+      {lines.map((ln,i)=><span key={i} style={{display:"block"}}>{ln}</span>)}
+    </button>
+  );
+}
+
+function Onboarding({t, onDone}) {
+  const [idx,setIdx]=useState(0);
+  const slides=[
+    {e:"🧠",ti:"브레인스토밍",d:"머릿속 생각을\n단어로 꺼내보세요"},
+    {e:"🔗",ti:"연결하고 탐색",d:"6단계를 거쳐\n생각이 이어져요"},
+    {e:"✨",ti:"AI 맞춤 제안",d:"직업·할일까지\n꼭 맞는 제안을 해드려요"},
+  ];
+  const s=slides[idx];
+  return (
+    <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:`linear-gradient(${t.grad})`,fontFamily:font,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
+      <style>{CSS}</style>
+      <div style={{textAlign:"center",marginBottom:48,animation:"fadeUp 0.5s ease"}}>
+        <div style={{fontSize:72,marginBottom:24}}>{s.e}</div>
+        <h2 style={{fontSize:28,fontWeight:900,color:t.text,margin:"0 0 12px"}}>{s.ti}</h2>
+        <p style={{fontSize:16,color:t.sub,lineHeight:1.7,margin:0,whiteSpace:"pre-line"}}>{s.d}</p>
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:40}}>
+        {slides.map((_,i)=><div key={i} onClick={()=>setIdx(i)} style={{width:i===idx?24:8,height:8,borderRadius:20,background:i===idx?t.primary:t.dim,transition:"all 0.3s",cursor:"pointer"}}/>)}
+      </div>
+      {idx<slides.length-1
+        ?<button onClick={()=>setIdx(idx+1)} style={{width:"100%",maxWidth:300,padding:"16px",borderRadius:20,background:t.primary,color:"#fff",border:"none",fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:font}}>다음 →</button>
+        :<button onClick={onDone} style={{width:"100%",maxWidth:300,padding:"16px",borderRadius:20,background:t.primary,color:"#fff",border:"none",fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:font}}>시작하기 🚀</button>
+      }
+    </div>
+  );
+}
+
+function Settings({t, tk, setTk, persona, setPersona, snd, setSnd, onBack}) {
+  return (
+    <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:t.soft,fontFamily:font,paddingBottom:40,animation:"slideIn 0.3s ease"}}>
+      <style>{CSS}</style>
+      <div style={{padding:"24px 20px 16px",background:"#fff",borderBottom:`1px solid ${t.border}`}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <button onClick={onBack} style={{width:34,height:34,borderRadius:10,background:t.light,border:"none",cursor:"pointer",fontSize:15,color:t.primary}}>←</button>
+          <h2 style={{fontSize:20,fontWeight:900,color:t.text,margin:0}}>설정</h2>
+        </div>
+      </div>
+      <div style={{padding:"20px"}}>
+        <p style={{fontSize:12,color:t.sub,fontWeight:700,margin:"0 0 10px"}}>테마 색상</p>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:24}}>
+          {Object.entries(THEMES).map(([k,th])=>(
+            <button key={k} onClick={()=>setTk(k)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 16px",borderRadius:16,background:k===tk?"#fff":t.light,border:`2px solid ${k===tk?th.primary:t.border}`,cursor:"pointer",fontFamily:font,transition:"all 0.2s"}}>
+              <span style={{fontSize:22}}>{th.emoji}</span>
+              <span style={{fontSize:12,fontWeight:700,color:k===tk?th.primary:t.sub}}>{th.name}</span>
+            </button>
+          ))}
+        </div>
+        <p style={{fontSize:12,color:t.sub,fontWeight:700,margin:"0 0 10px"}}>AI 페르소나</p>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
+          {Object.entries(PERSONAS).map(([k,p])=>(
+            <button key={k} onClick={()=>setPersona(k)} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderRadius:16,background:k===persona?"#fff":t.light,border:`2px solid ${k===persona?t.primary:t.border}`,cursor:"pointer",fontFamily:font,textAlign:"left",transition:"all 0.2s"}}>
+              <span style={{fontSize:24}}>{p.emoji}</span>
+              <div><p style={{fontSize:14,fontWeight:800,color:k===persona?t.text:"#6B7280",margin:0}}>{p.name}</p><p style={{fontSize:12,color:t.sub,margin:0}}>{p.desc}</p></div>
+              {k===persona&&<span style={{marginLeft:"auto",color:t.primary,fontSize:18}}>✓</span>}
+            </button>
+          ))}
+        </div>
+        <button onClick={()=>setSnd(s=>!s)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"14px 16px",borderRadius:16,background:"#fff",border:`1.5px solid ${t.border}`,cursor:"pointer",fontFamily:font}}>
+          <span style={{fontSize:14,fontWeight:700,color:t.text}}>{snd?"🔊 효과음 켜짐":"🔇 효과음 꺼짐"}</span>
+          <div style={{width:44,height:24,borderRadius:20,background:snd?t.primary:t.dim,position:"relative",transition:"background 0.3s"}}>
+            <div style={{position:"absolute",top:2,left:snd?22:2,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left 0.3s"}}/>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function App(){
+  const [tk,setTk]=useState("purple");
+  const [persona,setPersona]=useState("friend");
+  const [snd,setSnd]=useState(true);
+  const [screen,setScreen]=useState("onboarding");
+  const [inp,setInp]=useState("");
+  const [si,setSi]=useState(0);
+  const [words,setWords]=useState([]);
+  const [sel,setSel]=useState(null);
+  const [path,setPath]=useState([]);
+  const [fw,setFw]=useState(null);
+  const [ai,setAi]=useState(null);
+  const [hist,setHist]=useState([]);
+  const [ripple,setRipple]=useState(null);
+  const [err,setErr]=useState("");
+  const play=useSound(snd);
+  const t=THEMES[tk];
+  const isFinal=si===MAX-1;
+  const vw=words.slice(0,countFor(si+1));
+  const bsz=vw.length<=4?"lg":vw.length<=6?"md":"sm";
+
+  async function fetchWords(topic, count) {
+    const res=await fetch("/api/brainstorm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic,count})});
+    const data=await res.json();
+    return data.words||[];
   }
 
-  async function start(topic) {
-    if (!topic.trim()) return;
-    setErr("");
-    setScreen("loading");
+  async function startGame(topic) {
+    if(!topic.trim())return;
+    setErr(""); setScreen("loading");
     try {
-      const ws = await fetchWords(topic);
-      if (ws.length < 2) { setErr("다시 시도해주세요."); setScreen("home"); return; }
-      setPath([topic]);
-      setWords(ws);
-      setStageIdx(0);
-      setSelected(null);
-      setScreen("game");
+      const ws=await fetchWords(topic, countFor(1));
+      if(ws.length<2){setErr("다시 시도해주세요.");setScreen("home");return;}
+      setPath([topic]); setWords(ws); setSi(0); setSel(null); setScreen("game");
     } catch { setErr("오류가 발생했어요."); setScreen("home"); }
   }
 
-  async function next() {
-    if (selected === null) return;
-    const word = visibleWords[selected];
-    const newPath = [...path, word];
-    setPath(newPath);
-    setSelected(null);
+  function handleSel(i){
+    play("select"); setSel(sel===i?null:i);
+    setRipple(i); setTimeout(()=>setRipple(null),400);
+    if(navigator.vibrate)navigator.vibrate(30);
+  }
 
-    if (isFinal) {
-      setFinalWord(word);
-      setScreen("loading");
+  async function next(){
+    if(sel===null)return;
+    play("next");
+    const word=vw[sel]; const np=[...path,word];
+    setPath(np); setSel(null);
+    if(isFinal){
+      setFw(word); setScreen("loading");
       try {
-        const res = await fetch("/api/brainstorm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic: word, path: newPath, mode: "suggest" })
-        });
-        const data = await res.json();
+        const res=await fetch("/api/brainstorm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic:word,path:np,mode:"suggest",persona})});
+        const data=await res.json();
+        play("done");
         setAi(data);
+        const rec={id:Date.now(),path:np,finalWord:word,date:new Date().toLocaleDateString("ko").slice(5,10).replace(". ","."),persona};
+        setHist(h=>[rec,...h]);
         setScreen("result");
       } catch { setScreen("result"); }
     } else {
       setScreen("loading");
       try {
-        const res = await fetch("/api/brainstorm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic: word, count: countFor(stageIdx + 2) })
-        });
-        const data = await res.json();
-        if (data.words?.length >= 2) {
-          setWords(data.words);
-          setStageIdx(stageIdx + 1);
-          setScreen("game");
-        } else { setErr("다시 시도해주세요."); setScreen("game"); }
+        const ws=await fetchWords(word, countFor(si+2));
+        if(ws.length>=2){setWords(ws);setSi(si+1);setScreen("game");}
+        else{setErr("다시 시도해주세요.");setScreen("game");}
       } catch { setErr("오류가 발생했어요."); setScreen("game"); }
     }
   }
 
-  function back() {
-    if (stageIdx === 0) { setScreen("home"); return; }
-    setPath(path.slice(0, -1));
-    setStageIdx(stageIdx - 1);
-    setSelected(null);
-    setScreen("game");
-  }
-
-  function restart() {
+  function restart(){
     setScreen("home"); setInp(""); setPath([]); setWords([]);
-    setStageIdx(0); setSelected(null); setAi(null); setFinalWord(null); setErr("");
+    setSi(0); setSel(null); setAi(null); setFw(null); setErr("");
   }
 
-  // 로딩
-  if (screen === "loading") return (
-    <div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: "#F8F7FF", fontFamily: font, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-      <div style={{ fontSize: 48 }}>🧠</div>
-      <p style={{ fontSize: 16, fontWeight: 700, color: "#4C1D95", margin: 0 }}>
-        {isFinal ? "AI가 분석 중이에요..." : "단어를 찾는 중..."}
-      </p>
-      <p style={{ fontSize: 13, color: "#A78BFA", margin: 0, textAlign: "center", padding: "0 40px", lineHeight: 1.6 }}>
-        {isFinal ? "당신의 탐색 흐름을 보고\n딱 맞는 제안을 만들고 있어요" : "잠깐만요!"}
-      </p>
+  if(screen==="onboarding") return <Onboarding t={t} onDone={()=>setScreen("home")}/>;
+  if(screen==="settings") return <Settings t={t} tk={tk} setTk={setTk} persona={persona} setPersona={setPersona} snd={snd} setSnd={setSnd} onBack={()=>setScreen("home")}/>;
+
+  if(screen==="loading") return (
+    <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:`linear-gradient(${t.grad})`,fontFamily:font,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
+      <style>{CSS}</style>
+      <div style={{fontSize:56,animation:"spin 2s linear infinite",display:"inline-block"}}>🧠</div>
+      <p style={{fontSize:18,fontWeight:800,color:t.text,margin:0}}>분석 중이에요...</p>
+      <div style={{display:"flex",gap:8}}>{[0,1,2].map(i=><div key={i} style={{width:10,height:10,borderRadius:"50%",background:t.border,animation:`bnc 1.2s ${i*0.2}s infinite`}}/>)}</div>
     </div>
   );
 
-  // 결과
-  if (screen === "result") return (
-    <div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: "#F8F7FF", fontFamily: font, paddingBottom: 40 }}>
-      <div style={{ padding: "24px 20px 20px", background: "#fff", borderBottom: "1px solid #EDE9FE" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
-          <button onClick={restart} style={{ width: 34, height: 34, borderRadius: 10, background: "#EDE9FE", border: "none", cursor: "pointer", fontSize: 15, color: "#7C3AED" }}>←</button>
-          <span style={{ fontSize: 12, color: "#A78BFA", fontWeight: 600 }}>브레인스토밍 완료</span>
+  if(screen==="result") return (
+    <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:t.soft,fontFamily:font,paddingBottom:40,animation:"slideIn 0.3s ease"}}>
+      <style>{CSS}</style>
+      <div style={{padding:"24px 20px 20px",background:"#fff",borderBottom:`1px solid ${t.border}`}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+          <button onClick={restart} style={{width:34,height:34,borderRadius:10,background:t.light,border:"none",cursor:"pointer",fontSize:15,color:t.primary}}>←</button>
+          <span style={{fontSize:12,color:t.sub,fontWeight:700}}>완료 🎉</span>
+          <button onClick={()=>exportImage(path,fw,ai,tk)} style={{padding:"6px 14px",borderRadius:12,background:t.light,border:`1.5px solid ${t.border}`,color:t.primary,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font}}>🖼️ 저장</button>
         </div>
-        <p style={{ fontSize: 11, color: "#C4B5FD", margin: "0 0 8px", fontWeight: 600, letterSpacing: "0.05em" }}>나의 탐색 경로</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 16 }}>
-          {path.map((w, i) => (
-            <span key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              {i > 0 && <span style={{ color: "#DDD6FE", fontSize: 12 }}>→</span>}
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: COLORS[i % COLORS.length].border, padding: "4px 12px", borderRadius: 20 }}>{w}</span>
+        <p style={{fontSize:11,color:t.dim,margin:"0 0 8px",fontWeight:600,letterSpacing:"0.05em"}}>탐색 경로</p>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:16}}>
+          {path.map((w,i)=>(
+            <span key={i} style={{display:"flex",alignItems:"center",gap:5}}>
+              {i>0&&<span style={{color:t.dim,fontSize:12}}>→</span>}
+              <span style={{fontSize:13,fontWeight:700,color:"#fff",background:BC[i%BC.length].border,padding:"4px 12px",borderRadius:20}}>{w}</span>
             </span>
           ))}
         </div>
-        <div style={{ background: "#4C1D95", borderRadius: 20, padding: "16px 20px" }}>
-          <p style={{ fontSize: 11, color: "#C4B5FD", margin: "0 0 4px", fontWeight: 600 }}>최종 키워드</p>
-          <p style={{ fontSize: 28, fontWeight: 900, margin: 0, color: "#fff" }}>🎯 {finalWord}</p>
+        <div style={{background:`linear-gradient(135deg,${t.text},${t.primary})`,borderRadius:20,padding:"18px 20px"}}>
+          <p style={{fontSize:11,color:t.dim,margin:"0 0 4px",fontWeight:600}}>최종 키워드</p>
+          <p style={{fontSize:30,fontWeight:900,margin:0,color:"#fff"}}>🎯 {fw}</p>
         </div>
       </div>
-
-      <div style={{ padding: "20px" }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#7C3AED", margin: "0 0 14px" }}>✨ AI가 당신의 흐름을 분석했어요</p>
-
+      <div style={{padding:"20px"}}>
+        <div style={{background:t.light,borderRadius:14,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:16}}>{PERSONAS[persona].emoji}</span>
+          <span style={{fontSize:12,color:t.sub,fontWeight:700}}>{PERSONAS[persona].name} 스타일 분석</span>
+        </div>
         {[
-          { icon: "🎬", title: "지금 이걸 해보세요", text: ai?.action, bg: "#fff", border: "#EDE9FE", color: "#374151", tcolor: "#4C1D95" },
-          { icon: "🌿", title: "이런 기분으로 있어보세요", text: ai?.mood, bg: "#fff", border: "#EDE9FE", color: "#374151", tcolor: "#4C1D95" },
-          { icon: "💜", title: "AI 한마디", text: ai?.tip, bg: "#F0EBFF", border: "#C4B5FD", color: "#5B21B6", tcolor: "#4C1D95" },
-        ].map((card, i) => (
-          <div key={i} style={{ background: card.bg, border: `1.5px solid ${card.border}`, borderRadius: 20, padding: "18px", marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <span style={{ fontSize: 20 }}>{card.icon}</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: card.tcolor }}>{card.title}</span>
+          {icon:"🎬",title:"지금 이걸 해보세요",text:ai?.action,bg:"#fff",tc:"#374151"},
+          {icon:"🌿",title:"이런 기분으로 있어보세요",text:ai?.mood,bg:"#fff",tc:"#374151"},
+          {icon:"💼",title:"추천 직업",text:ai?.job,bg:t.light,tc:t.sub},
+          {icon:"📋",title:"오늘의 할 일 3가지",text:ai?.todo,bg:t.light,tc:t.sub},
+          {icon:"💫",title:"AI 한마디",text:ai?.tip,bg:"#fff",tc:t.text},
+        ].map((card,i)=>(
+          <div key={i} style={{background:card.bg,border:`1.5px solid ${t.border}`,borderRadius:20,padding:"16px 18px",marginBottom:10,animation:`fadeUp 0.4s ${i*0.07}s both ease`}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{fontSize:18}}>{card.icon}</span>
+              <span style={{fontSize:13,fontWeight:800,color:t.text}}>{card.title}</span>
             </div>
-            <p style={{ fontSize: 14, color: card.color, margin: 0, lineHeight: 1.7 }}>{card.text || "..."}</p>
+            <p style={{fontSize:14,color:card.tc,margin:0,lineHeight:1.7,whiteSpace:"pre-line"}}>{card.text}</p>
           </div>
         ))}
-
-        <button onClick={restart} style={{ width: "100%", marginTop: 8, padding: "16px", borderRadius: 18, background: "#6D28D9", color: "#fff", border: "none", fontSize: 16, fontWeight: 800, cursor: "pointer", fontFamily: font }}>
-          다시 탐색하기
-        </button>
+        <button onClick={restart} style={{width:"100%",marginTop:8,padding:"16px",borderRadius:18,background:t.primary,color:"#fff",border:"none",fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:font}}>다시 탐색하기</button>
       </div>
     </div>
   );
 
-  // 홈
-  if (screen === "home") return (
-    <div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: "#F8F7FF", fontFamily: font, padding: "60px 20px 40px" }}>
-      <h1 style={{ fontSize: 32, fontWeight: 900, color: "#4C1D95", margin: "0 0 8px" }}>🧠 브레인스토밍</h1>
-      <p style={{ fontSize: 14, color: "#A78BFA", margin: "0 0 40px", lineHeight: 1.6 }}>단어를 타고 6단계를 거쳐<br/>AI의 맞춤 제안을 받아보세요</p>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <input value={inp} onChange={e => setInp(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && start(inp)}
-          placeholder="시작 단어를 입력하세요..."
-          style={{ flex: 1, fontSize: 15, padding: "14px 16px", border: "1.5px solid #DDD6FE", borderRadius: 16, outline: "none", fontFamily: font, background: "#fff" }} />
-        <button onClick={() => start(inp)} disabled={!inp.trim()}
-          style={{ padding: "0 20px", fontWeight: 800, fontSize: 14, background: "#6D28D9", color: "#fff", border: "none", borderRadius: 16, cursor: "pointer", fontFamily: font }}>시작</button>
+  if(screen==="home") return (
+    <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:`linear-gradient(${t.grad})`,fontFamily:font,padding:"50px 20px 40px"}}>
+      <style>{CSS}</style>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:32}}>
+        <div>
+          <h1 style={{fontSize:34,fontWeight:900,color:t.text,margin:"0 0 8px"}}>🧠 브레인<br/>스토밍</h1>
+          <div style={{display:"inline-flex",alignItems:"center",gap:6,background:t.light,borderRadius:12,padding:"5px 10px"}}>
+            <span style={{fontSize:14}}>{PERSONAS[persona].emoji}</span>
+            <span style={{fontSize:11,color:t.sub,fontWeight:700}}>{PERSONAS[persona].name} 모드</span>
+          </div>
+        </div>
+        <button onClick={()=>setScreen("settings")} style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:14,padding:"10px 14px",cursor:"pointer",fontSize:12,color:t.primary,fontWeight:700,fontFamily:font}}>⚙️ 설정</button>
       </div>
-
-      {err && <p style={{ color: "#EF4444", fontSize: 13, marginBottom: 12 }}>{err}</p>}
-
-      <p style={{ fontSize: 12, color: "#C4B5FD", margin: "0 0 10px", fontWeight: 600 }}>추천 주제</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {HINTS.map((s, i) => (
-          <button key={s} onClick={() => start(s)}
-            style={{ fontSize: 14, padding: "8px 18px", borderRadius: 20, color: COLORS[i].text, background: COLORS[i].bg, border: `1.5px solid ${COLORS[i].border}`, cursor: "pointer", fontWeight: 700, fontFamily: font }}>
-            {s}
-          </button>
+      <div style={{background:"#fff",borderRadius:24,padding:"20px",marginBottom:20,boxShadow:`0 4px 24px ${t.border}44`,border:`1.5px solid ${t.border}`}}>
+        <p style={{fontSize:12,color:t.dim,margin:"0 0 10px",fontWeight:600}}>시작 단어 입력</p>
+        <div style={{display:"flex",gap:8}}>
+          <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&startGame(inp)}
+            placeholder="무엇이든 입력해보세요..."
+            style={{flex:1,fontSize:15,padding:"13px 16px",border:`1.5px solid ${t.border}`,borderRadius:14,outline:"none",fontFamily:font,background:t.soft}}/>
+          <button onClick={()=>startGame(inp)} style={{padding:"0 18px",fontWeight:800,fontSize:14,background:t.primary,color:"#fff",border:"none",borderRadius:14,cursor:"pointer",fontFamily:font}}>시작</button>
+        </div>
+        {err&&<p style={{color:"#EF4444",fontSize:13,margin:"8px 0 0"}}>{err}</p>}
+      </div>
+      <p style={{fontSize:12,color:t.dim,margin:"0 0 10px",fontWeight:600,paddingLeft:4}}>추천 주제</p>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:28}}>
+        {HINTS.map((s,i)=>(
+          <button key={s} onClick={()=>startGame(s)} style={{fontSize:14,padding:"9px 18px",borderRadius:20,color:BC[i].text,background:BC[i].bg,border:`1.5px solid ${BC[i].border}`,cursor:"pointer",fontWeight:700,fontFamily:font}}>{s}</button>
         ))}
       </div>
+      {hist.length>0&&(
+        <>
+          <p style={{fontSize:12,color:t.dim,fontWeight:600,margin:"0 0 10px",paddingLeft:4}}>최근 탐색</p>
+          {hist.slice(0,2).map(h=>(
+            <div key={h.id} style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:18,padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <span style={{fontSize:14,fontWeight:800,color:t.text}}>🎯 {h.finalWord}</span>
+                <div style={{fontSize:11,color:t.sub,marginTop:3}}>{h.path[0]} → ... → {h.finalWord} {PERSONAS[h.persona]?.emoji}</div>
+              </div>
+              <span style={{fontSize:11,color:t.dim}}>{h.date}</span>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 
-  // 게임
   return (
-    <div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: "#F8F7FF", fontFamily: font, paddingBottom: 100 }}>
-      <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #EDE9FE", background: "#fff" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <button onClick={back} style={{ width: 34, height: 34, borderRadius: 10, background: "#EDE9FE", border: "none", cursor: "pointer", fontSize: 15, color: "#7C3AED" }}>←</button>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {Array.from({ length: MAX }, (_, i) => (
-              <div key={i} style={{ width: i <= stageIdx ? 20 : 7, height: 7, borderRadius: 20, background: i < stageIdx ? "#C4B5FD" : i === stageIdx ? (isFinal ? "#F59E0B" : "#7C3AED") : "#EDE9FE", transition: "all 0.4s ease" }} />
+    <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:t.soft,fontFamily:font,paddingBottom:100,animation:"slideIn 0.3s ease"}}>
+      <style>{CSS}</style>
+      <div style={{padding:"24px 20px 20px",borderBottom:`1px solid ${t.border}`,background:"#fff"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+          <button onClick={()=>{if(si===0)setScreen("home");else{setSi(si-1);setPath(path.slice(0,-1));setSel(null);}}}
+            style={{width:34,height:34,borderRadius:10,background:t.light,border:"none",cursor:"pointer",fontSize:15,color:t.primary}}>←</button>
+          <div style={{display:"flex",gap:5}}>
+            {Array.from({length:MAX},(_,i)=>(
+              <div key={i} style={{width:i<=si?20:7,height:7,borderRadius:20,background:i<si?t.border:i===si?(isFinal?"#F59E0B":t.primary):t.light,transition:"all 0.4s"}}/>
             ))}
           </div>
-          <div style={{ background: isFinal ? "#FEF3C7" : "#EDE9FE", borderRadius: 12, padding: "5px 12px", fontSize: 12, color: isFinal ? "#D97706" : "#7C3AED", fontWeight: 700 }}>
-            {isFinal ? "마지막 🎯" : `${stageIdx + 1}/${MAX}`}
+          <div style={{background:isFinal?"#FEF3C7":t.light,borderRadius:12,padding:"5px 12px",fontSize:12,color:isFinal?"#D97706":t.primary,fontWeight:700}}>
+            {isFinal?"마지막 🎯":`${si+1}/${MAX}`}
           </div>
         </div>
-
-        {path.length > 1 && (
-          <div style={{ marginBottom: 14 }}>
-            <p style={{ fontSize: 11, color: "#C4B5FD", margin: "0 0 8px", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>탐색 경로</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-              {path.slice(0, -1).map((w, i) => (
-                <span key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  {i > 0 && <span style={{ color: "#DDD6FE", fontSize: 12 }}>→</span>}
-                  <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", background: COLORS[i % COLORS.length].border, padding: "5px 14px", borderRadius: 20, boxShadow: `0 2px 8px ${COLORS[i % COLORS.length].border}66` }}>{w}</span>
+        {path.length>1&&(
+          <div style={{marginBottom:14}}>
+            <p style={{fontSize:11,color:t.dim,margin:"0 0 8px",fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase"}}>탐색 경로</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+              {path.slice(0,-1).map((w,i)=>(
+                <span key={i} style={{display:"flex",alignItems:"center",gap:5}}>
+                  {i>0&&<span style={{color:t.dim,fontSize:12}}>→</span>}
+                  <span style={{fontSize:14,fontWeight:800,color:"#fff",background:BC[i%BC.length].border,padding:"5px 14px",borderRadius:20,boxShadow:`0 2px 8px ${BC[i%BC.length].border}66`}}>{w}</span>
                 </span>
               ))}
             </div>
           </div>
         )}
-
         <div>
-          <p style={{ fontSize: 11, color: "#C4B5FD", margin: "0 0 4px", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>현재 주제</p>
-          <h2 style={{ fontSize: 36, fontWeight: 900, margin: 0, color: "#4C1D95", letterSpacing: "-1px" }}>{path[path.length - 1]}</h2>
+          <p style={{fontSize:11,color:t.dim,margin:"0 0 4px",fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase"}}>현재 주제</p>
+          <h2 style={{fontSize:36,fontWeight:900,margin:0,color:t.text,letterSpacing:"-1px"}}>{path[path.length-1]}</h2>
         </div>
-
-        <div style={{ marginTop: 14, height: 5, background: "#EDE9FE", borderRadius: 20, overflow: "hidden" }}>
-          <div style={{ width: `${((stageIdx + 1) / MAX) * 100}%`, height: "100%", background: isFinal ? "#F59E0B" : "#7C3AED", borderRadius: 20, transition: "width 0.5s ease" }} />
+        <div style={{marginTop:14,height:5,background:t.light,borderRadius:20,overflow:"hidden"}}>
+          <div style={{width:`${((si+1)/MAX)*100}%`,height:"100%",background:isFinal?"#F59E0B":t.primary,borderRadius:20,transition:"width 0.5s ease"}}/>
         </div>
       </div>
-
-      <div style={{ padding: "16px 20px 12px" }}>
-        <p style={{ fontSize: 13, color: isFinal ? "#D97706" : "#A78BFA", margin: 0, fontWeight: 600 }}>
-          {isFinal ? "✨ 하나를 고르면 AI가 제안해드려요" : `${visibleWords.length}개 중 하나를 골라보세요 ↓`}
+      <div style={{padding:"16px 20px 8px"}}>
+        <p style={{fontSize:13,color:isFinal?"#D97706":t.sub,margin:0,fontWeight:600}}>
+          {isFinal?"✨ 하나를 고르면 AI가 분석해드려요":`${vw.length}개 중 하나를 골라보세요 ↓`}
         </p>
       </div>
-
-      {err && <p style={{ color: "#EF4444", fontSize: 13, padding: "0 20px" }}>{err}</p>}
-
-      <div style={{ padding: "0 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        {visibleWords.map((word, i) => {
-          const c = COLORS[i % COLORS.length];
-          const isSel = selected === i;
-          return (
-            <button key={i} onClick={() => setSelected(isSel ? null : i)}
-              style={{
-                background: isSel ? c.border : c.bg,
-                border: `2px solid ${c.border}`,
-                borderRadius: 20,
-                padding: visibleWords.length <= 4 ? "24px 12px" : "18px 12px",
-                cursor: "pointer", fontFamily: font,
-                fontSize: visibleWords.length <= 4 ? 18 : 16,
-                fontWeight: 700,
-                color: isSel ? "#fff" : c.text,
-                transition: "all 0.2s ease",
-                transform: isSel ? "scale(0.97)" : "scale(1)",
-                boxShadow: isSel ? `0 4px 16px ${c.border}88` : "none",
-                textAlign: "center",
-              }}>
-              {word}
-            </button>
-          );
-        })}
+      <div style={{padding:"0 20px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {vw.map((word,i)=>(
+          <Bubble key={word+i} word={word} color={BC[i%BC.length]} size={bsz} selected={sel===i} onClick={()=>handleSel(i)} ripple={ripple===i}/>
+        ))}
       </div>
-
-      {selected !== null && (
-        <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 390, padding: "16px 20px", background: "#fff", borderTop: "1px solid #EDE9FE" }}>
-          <button onClick={next} style={{ width: "100%", padding: "16px", borderRadius: 18, background: isFinal ? "#D97706" : "#6D28D9", color: "#fff", border: "none", fontSize: 16, fontWeight: 800, cursor: "pointer", fontFamily: font }}>
-            {isFinal ? `"${visibleWords[selected]}" 선택 → AI 제안 받기 ✨` : `"${visibleWords[selected]}" 로 계속 탐색 →`}
+      {sel!==null&&(
+        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:390,padding:"16px 20px",background:"#fff",borderTop:`1px solid ${t.border}`}}>
+          <button onClick={next} style={{width:"100%",padding:"16px",borderRadius:18,background:isFinal?"#D97706":t.primary,color:"#fff",border:"none",fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:font}}>
+            {isFinal?`"${vw[sel]}" → AI 분석 받기 ✨`:`"${vw[sel]}" 로 계속 탐색 →`}
           </button>
         </div>
       )}
