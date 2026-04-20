@@ -24,14 +24,16 @@ const BC = [
   {bg:"#FDF4FF",border:"#E879F9",text:"#701A75"},
 ];
 
-const MAX=6, HINTS=["커피","여행","창업","독서","건강","음악"];
+const MAX=6, HINTS=["커피","여행","창업","주식","건강","음악"];
 const countFor = s => s<=2?8:s<=4?6:4;
-const font="'Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif";
+const font="'Pretendard','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif";
 const CSS=`
   @keyframes bnc{0%,80%,100%{transform:scale(0.8);opacity:0.4}40%{transform:scale(1.3);opacity:1}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes slideIn{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes wobble{0%,100%{transform:rotate(-8deg) scale(1)}25%{transform:rotate(8deg) scale(1.08)}50%{transform:rotate(-5deg) scale(1.04)}75%{transform:rotate(6deg) scale(1.06)}}
+  @keyframes eyeBlink{0%,90%,100%{transform:scaleY(1)}95%{transform:scaleY(0.1)}}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 `;
 
 function useSound(on) {
@@ -111,7 +113,7 @@ function Onboarding({t, onDone}) {
   const slides=[
     {e:"🧠",ti:"브레인스토밍",d:"머릿속 생각을\n단어로 꺼내보세요"},
     {e:"🔗",ti:"연결하고 탐색",d:"6단계를 거쳐\n생각이 이어져요"},
-    {e:"✨",ti:"AI 맞춤 제안",d:"직업·할일까지\n꼭 맞는 제안을 해드려요"},
+    {e:"✨",ti:"AI 맞춤 제안",d:"직업·할일·투자 테마까지\n꼭 맞는 제안을 해드려요"},
   ];
   const s=slides[idx];
   return (
@@ -252,11 +254,32 @@ export default function App(){
   if(screen==="settings") return <Settings t={t} tk={tk} setTk={setTk} persona={persona} setPersona={setPersona} snd={snd} setSnd={setSnd} onBack={()=>setScreen("home")}/>;
 
   if(screen==="loading") return (
-    <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:`linear-gradient(${t.grad})`,fontFamily:font,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
+    <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:`linear-gradient(${t.grad})`,fontFamily:font,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:24}}>
       <style>{CSS}</style>
-      <div style={{fontSize:56,animation:"spin 2s linear infinite",display:"inline-block"}}>🧠</div>
-      <p style={{fontSize:18,fontWeight:800,color:t.text,margin:0}}>분석 중이에요...</p>
-      <div style={{display:"flex",gap:8}}>{[0,1,2].map(i=><div key={i} style={{width:10,height:10,borderRadius:"50%",background:t.border,animation:`bnc 1.2s ${i*0.2}s infinite`}}/>)}</div>
+      <div style={{position:"relative",animation:"float 2s ease-in-out infinite"}}>
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <ellipse cx="55" cy="62" rx="36" ry="30" fill={t.border} opacity="0.3"/>
+          <ellipse cx="55" cy="60" rx="34" ry="28" fill={t.light} stroke={t.border} strokeWidth="2.5"/>
+          <path d="M30 52 Q38 44 46 52 Q54 60 62 52 Q70 44 78 52" fill="none" stroke={t.border} strokeWidth="2" strokeLinecap="round"/>
+          <path d="M34 62 Q42 56 50 62 Q58 68 66 62 Q72 56 78 62" fill="none" stroke={t.border} strokeWidth="2" strokeLinecap="round"/>
+          <path d="M32 72 Q40 66 50 72 Q60 78 70 72" fill="none" stroke={t.border} strokeWidth="2" strokeLinecap="round"/>
+          <g style={{animation:"eyeBlink 3s infinite"}}>
+            <ellipse cx="44" cy="57" rx="4" ry="4.5" fill={t.primary}/>
+            <ellipse cx="66" cy="57" rx="4" ry="4.5" fill={t.primary}/>
+          </g>
+          <ellipse cx="44" cy="55.5" rx="1.5" ry="2" fill="white"/>
+          <ellipse cx="66" cy="55.5" rx="1.5" ry="2" fill="white"/>
+          <ellipse cx="36" cy="63" rx="5" ry="3" fill={t.border} opacity="0.5"/>
+          <ellipse cx="74" cy="63" rx="5" ry="3" fill={t.border} opacity="0.5"/>
+          <path d="M47 68 Q55 74 63 68" fill="none" stroke={t.primary} strokeWidth="2.5" strokeLinecap="round"/>
+          <text x="18" y="30" fontSize="14" style={{animation:"bnc 1.5s 0s infinite"}}>✨</text>
+          <text x="76" y="22" fontSize="12" style={{animation:"bnc 1.5s 0.3s infinite"}}>⭐</text>
+          <text x="82" y="50" fontSize="10" style={{animation:"bnc 1.5s 0.6s infinite"}}>💫</text>
+        </svg>
+        <div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",background:t.primary,color:"#fff",borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}>생각 중... 🤔</div>
+      </div>
+      <p style={{fontSize:17,fontWeight:800,color:t.text,margin:0}}>AI가 분석하고 있어요</p>
+      <div style={{display:"flex",gap:8}}>{[0,1,2].map(i=><div key={i} style={{width:9,height:9,borderRadius:"50%",background:t.primary,animation:`bnc 1.2s ${i*0.2}s infinite`}}/>)}</div>
     </div>
   );
 
@@ -303,6 +326,30 @@ export default function App(){
             <p style={{fontSize:14,color:card.tc,margin:0,lineHeight:1.7,whiteSpace:"pre-line"}}>{card.text}</p>
           </div>
         ))}
+
+        {ai?.invest && (
+          <div style={{border:"1.5px solid #FCD34D",borderRadius:20,overflow:"hidden",marginBottom:10,animation:"fadeUp 0.5s 0.35s both ease"}}>
+            <div style={{background:"#FEF3C7",padding:"12px 18px",display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18}}>📈</span>
+              <span style={{fontSize:13,fontWeight:800,color:"#78350F"}}>투자 참고 정보</span>
+              <span style={{marginLeft:"auto",fontSize:10,background:"#FDE68A",color:"#92400E",padding:"2px 8px",borderRadius:20,fontWeight:700}}>참고용</span>
+            </div>
+            <div style={{background:"#fff",padding:"14px 18px"}}>
+              <p style={{fontSize:12,fontWeight:700,color:"#92400E",margin:"0 0 6px"}}>🎯 투자 테마</p>
+              <p style={{fontSize:14,color:"#374151",margin:"0 0 12px",lineHeight:1.6}}>{ai.invest.theme}</p>
+              <p style={{fontSize:12,fontWeight:700,color:"#92400E",margin:"0 0 6px"}}>🏢 관련 종목 (참고용)</p>
+              <p style={{fontSize:14,color:"#374151",margin:"0 0 12px",lineHeight:1.6}}>{ai.invest.stocks}</p>
+              <p style={{fontSize:12,fontWeight:700,color:"#92400E",margin:"0 0 6px"}}>📦 관련 ETF</p>
+              <p style={{fontSize:14,color:"#374151",margin:"0 0 12px",lineHeight:1.6}}>{ai.invest.etf}</p>
+              <p style={{fontSize:12,fontWeight:700,color:"#92400E",margin:"0 0 6px"}}>🧠 투자 마인드셋</p>
+              <p style={{fontSize:14,color:"#374151",margin:"0 0 14px",lineHeight:1.6}}>{ai.invest.mindset}</p>
+              <div style={{background:"#FEF9C3",borderRadius:12,padding:"10px 14px",borderLeft:"3px solid #FCD34D"}}>
+                <p style={{fontSize:11,color:"#92400E",margin:0,lineHeight:1.6}}>{ai.invest.disclaimer}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button onClick={restart} style={{width:"100%",marginTop:8,padding:"16px",borderRadius:18,background:t.primary,color:"#fff",border:"none",fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:font}}>다시 탐색하기</button>
       </div>
     </div>
@@ -311,32 +358,35 @@ export default function App(){
   if(screen==="home") return (
     <div style={{maxWidth:390,margin:"0 auto",minHeight:"100vh",background:`linear-gradient(${t.grad})`,fontFamily:font,padding:"50px 20px 40px"}}>
       <style>{CSS}</style>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:32}}>
-        <div>
-          <h1 style={{fontSize:34,fontWeight:900,color:t.text,margin:"0 0 8px"}}>🧠 브레인<br/>스토밍</h1>
-          <div style={{display:"inline-flex",alignItems:"center",gap:6,background:t.light,borderRadius:12,padding:"5px 10px"}}>
-            <span style={{fontSize:14}}>{PERSONAS[persona].emoji}</span>
-            <span style={{fontSize:11,color:t.sub,fontWeight:700}}>{PERSONAS[persona].name} 모드</span>
-          </div>
+      <div style={{marginBottom:28}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <h1 style={{fontSize:26,fontWeight:900,color:t.text,margin:0,whiteSpace:"nowrap"}}>🧠 브레인스토밍</h1>
+          <button onClick={()=>setScreen("settings")} style={{flexShrink:0,marginLeft:12,width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:12,cursor:"pointer",fontSize:20}}>⚙️</button>
         </div>
-        <button onClick={()=>setScreen("settings")} style={{background:"#fff",border:`1.5px solid ${t.border}`,borderRadius:14,padding:"10px 14px",cursor:"pointer",fontSize:12,color:t.primary,fontWeight:700,fontFamily:font}}>⚙️ 설정</button>
+        <div style={{display:"inline-flex",alignItems:"center",gap:6,background:t.light,borderRadius:12,padding:"5px 10px"}}>
+          <span style={{fontSize:13}}>{PERSONAS[persona].emoji}</span>
+          <span style={{fontSize:11,color:t.sub,fontWeight:700}}>{PERSONAS[persona].name} 모드</span>
+        </div>
       </div>
+
       <div style={{background:"#fff",borderRadius:24,padding:"20px",marginBottom:20,boxShadow:`0 4px 24px ${t.border}44`,border:`1.5px solid ${t.border}`}}>
         <p style={{fontSize:12,color:t.dim,margin:"0 0 10px",fontWeight:600}}>시작 단어 입력</p>
         <div style={{display:"flex",gap:8}}>
           <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&startGame(inp)}
             placeholder="무엇이든 입력해보세요..."
-            style={{flex:1,fontSize:15,padding:"13px 16px",border:`1.5px solid ${t.border}`,borderRadius:14,outline:"none",fontFamily:font,background:t.soft}}/>
-          <button onClick={()=>startGame(inp)} style={{padding:"0 18px",fontWeight:800,fontSize:14,background:t.primary,color:"#fff",border:"none",borderRadius:14,cursor:"pointer",fontFamily:font}}>시작</button>
+            style={{flex:1,minWidth:0,fontSize:15,padding:"13px 16px",border:`1.5px solid ${t.border}`,borderRadius:14,outline:"none",fontFamily:font,background:t.soft}}/>
+          <button onClick={()=>startGame(inp)} style={{flexShrink:0,padding:"13px 20px",fontWeight:800,fontSize:15,background:t.primary,color:"#fff",border:"none",borderRadius:14,cursor:"pointer",fontFamily:font,whiteSpace:"nowrap"}}>시작</button>
         </div>
         {err&&<p style={{color:"#EF4444",fontSize:13,margin:"8px 0 0"}}>{err}</p>}
       </div>
+
       <p style={{fontSize:12,color:t.dim,margin:"0 0 10px",fontWeight:600,paddingLeft:4}}>추천 주제</p>
       <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:28}}>
         {HINTS.map((s,i)=>(
           <button key={s} onClick={()=>startGame(s)} style={{fontSize:14,padding:"9px 18px",borderRadius:20,color:BC[i].text,background:BC[i].bg,border:`1.5px solid ${BC[i].border}`,cursor:"pointer",fontWeight:700,fontFamily:font}}>{s}</button>
         ))}
       </div>
+
       {hist.length>0&&(
         <>
           <p style={{fontSize:12,color:t.dim,fontWeight:600,margin:"0 0 10px",paddingLeft:4}}>최근 탐색</p>
