@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   };
   const personaPrompt = PERSONA_PROMPTS[persona] || PERSONA_PROMPTS.friend;
 
-  // 투자/주식 관련 키워드 감지
   const INVEST_KEYWORDS = ["주식","투자","종목","ETF","코스피","나스닥","배당","펀드","채권","부동산","코인","비트코인","금","달러","환율","증시","포트폴리오","수익","재테크","자산"];
   const isInvest = path && path.some(w => INVEST_KEYWORDS.some(k => w.includes(k)));
 
