@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 배경 -->
+  <rect width="512" height="512" rx="115" fill="#6D28D9"/>
+
+  <!-- 뇌 몸통 -->
+  <ellipse cx="256" cy="276" rx="164" ry="133" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="10"/>
+
+  <!-- 뇌 주름 -->
+  <path d="M112 224 Q160 188 208 224 Q256 260 304 224 Q352 188 400 224" fill="none" stroke="#C4B5FD" stroke-width="9" stroke-linecap="round"/>
+  <path d="M120 280 Q168 248 216 280 Q264 312 312 280 Q360 248 400 280" fill="none" stroke="#C4B5FD" stroke-width="9" stroke-linecap="round"/>
+  <path d="M130 332 Q180 304 230 332 Q280 360 330 332 Q370 310 395 332" fill="none" stroke="#C4B5FD" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- 왼쪽 눈 -->
+  <ellipse cx="190" cy="256" rx="28" ry="33" fill="#4C1D95"/>
+  <ellipse cx="182" cy="247" rx="9" ry="12" fill="white"/>
+
+  <!-- 오른쪽 눈 -->
+  <ellipse cx="322" cy="256" rx="28" ry="33" fill="#4C1D95"/>
+  <ellipse cx="314" cy="247" rx="9" ry="12" fill="white"/>
+
+  <!-- 볼터치 -->
+  <ellipse cx="144" cy="296" rx="28" ry="16" fill="#EC4899" opacity="0.35"/>
+  <ellipse cx="368" cy="296" rx="28" ry="16" fill="#EC4899" opacity="0.35"/>
+
+  <!-- 입 -->
+  <path d="M210 318 Q256 362 302 318" fill="none" stroke="#4C1D95" stroke-width="11" stroke-linecap="round"/>
+
+  <!-- 반짝이 -->
+  <g fill="#FDE68A">
+    <ellipse cx="87" cy="112" rx="8" ry="30" transform="rotate(0 87 112)"/>
+    <ellipse cx="87" cy="112" rx="8" ry="30" transform="rotate(45 87 112)"/>
+    <ellipse cx="87" cy="112" rx="8" ry="30" transform="rotate(90 87 112)"/>
+    <ellipse cx="87" cy="112" rx="8" ry="30" transform="rotate(135 87 112)"/>
+    <circle cx="87" cy="112" r="10"/>
+  </g>
+  <g fill="#FDE68A">
+    <ellipse cx="420" cy="90" rx="6" ry="22" transform="rotate(0 420 90)"/>
+    <ellipse cx="420" cy="90" rx="6" ry="22" transform="rotate(45 420 90)"/>
+    <ellipse cx="420" cy="90" rx="6" ry="22" transform="rotate(90 420 90)"/>
+    <ellipse cx="420" cy="90" rx="6" ry="22" transform="rotate(135 420 90)"/>
+    <circle cx="420" cy="90" r="7"/>
+  </g>
+  <g fill="#FDE68A">
+    <ellipse cx="435" cy="215" rx="5" ry="18" transform="rotate(0 435 215)"/>
+    <ellipse cx="435" cy="215" rx="5" ry="18" transform="rotate(90 435 215)"/>
+    <circle cx="435" cy="215" r="6"/>
+  </g>
+</svg>
