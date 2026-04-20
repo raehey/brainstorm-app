@@ -1,8 +1,8 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { topic, count, path, mode, persona } = req.body;
-  if (!topic) return res.status(400).json({ error: "missing params" });
+  const { topic, count, path, mode, persona, exclude, message, history, fw } = req.body;
+  if (!topic && mode !== "chat") return res.status(400).json({ error: "missing params" });
 
   const PERSONA_PROMPTS = {
     friend:      "친한 친구처럼 편하고 따뜻하게, 반말로",
@@ -16,14 +16,42 @@ export default async function handler(req, res) {
   const isInvest = path && path.some(w => INVEST_KEYWORDS.some(k => w.includes(k)));
 
   try {
+
+    // ── 1. AI 채팅 모드 ──────────────────────────────────────
+    if (mode === "chat") {
+      const sysPrompt = `사용자가 브레인스토밍으로 "${(path||[]).join(" → ")}" 경로를 탐색해서 최종 키워드 "${fw}"에 도달했어. ${personaPrompt} 스타일로 대화해줘. 짧고 친근하게, 2~4문장으로.`;
+      const msgs = [
+        ...(history||[]).map(m => ({ role: m.role, content: m.content || m.text })),
+        { role: "user", content: message }
+      ];
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 300,
+          system: sysPrompt,
+          messages: msgs,
+        })
+      });
+      const data = await response.json();
+      const reply = data.content?.map(b => b.text || "").join("") || "다시 물어봐줘!";
+      return res.status(200).json({ reply });
+    }
+
+    // ── 2. AI 결과 제안 모드 ─────────────────────────────────
     if (mode === "suggest") {
       const investSection = isInvest ? `
 "invest": {
-  "theme": "이 탐색 흐름과 어울리는 투자 테마 2~3가지 (예: AI반도체, 2차전지, 헬스케어 등)",
-  "stocks": "테마와 관련된 국내외 종목명 3~5개를 나열 (예: 삼성전자, NVIDIA, TSMC 등). 단순 정보 제공이며 투자 권유가 아님을 명시",
-  "etf": "관련 ETF 1~2개 (예: KODEX 반도체, QQQ 등)",
+  "theme": "이 탐색 흐름과 어울리는 투자 테마 2~3가지",
+  "stocks": "테마 관련 국내외 종목명 3~5개 나열. 단순 정보 제공이며 투자 권유 아님",
+  "etf": "관련 ETF 1~2개",
   "mindset": "이 투자 흐름에서 가져야 할 마음가짐 1~2문장",
-  "disclaimer": "⚠️ 이 정보는 AI가 생성한 참고용 정보이며, 투자 권유가 아닙니다. 최종 투자 결정과 책임은 본인에게 있습니다."
+  "disclaimer": "⚠️ 이 정보는 AI가 생성한 참고용이며 투자 권유가 아닙니다. 최종 투자 결정과 책임은 본인에게 있습니다."
 }` : `"invest": null`;
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -38,23 +66,21 @@ export default async function handler(req, res) {
           max_tokens: 1000,
           messages: [{
             role: "user",
-            content: `사용자가 브레인스토밍을 통해 다음 경로로 생각을 이어왔어: ${path.join(" → ")}
-
-이 흐름을 바탕으로 ${personaPrompt} 스타일로 아래 항목들을 한국어로 작성해줘.
+            content: `사용자가 브레인스토밍으로 "${path.join(" → ")}" 경로를 탐색했어.
+${personaPrompt} 스타일로 한국어로 작성해줘.
 반드시 JSON 형식으로만 답해. 다른 말은 절대 하지마.
 
 {
-  "action": "지금 당장 할 수 있는 구체적인 행동 한 가지 (2~3문장)",
-  "mood": "어떤 기분이나 마음가짐으로 있으면 좋을지 (2~3문장)",
-  "job": "이 흐름과 어울리는 직업 또는 역할 3가지와 이유 (2~3문장)",
-  "todo": "오늘 당장 실천할 수 있는 할 일 3가지 (번호 매겨서)",
-  "tip": "이 탐색 흐름에서 발견한 핵심 인사이트 한마디 (1~2문장)",
+  "action": "지금 당장 할 수 있는 구체적인 행동 (2~3문장)",
+  "mood": "어떤 기분으로 있으면 좋을지 (2~3문장)",
+  "job": "이 흐름과 어울리는 직업 3가지와 이유 (2~3문장)",
+  "todo": "오늘 실천할 할 일 3가지 (번호 매겨서)",
+  "tip": "이 탐색 흐름의 핵심 인사이트 (1~2문장)",
   ${investSection}
 }`
           }]
         })
       });
-
       const data = await response.json();
       const raw = data.content?.map(b => b.text || "").join("") || "{}";
       try {
@@ -72,7 +98,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // 연상 단어 생성
+    // ── 3. 연상 단어 생성 모드 (중복 제거) ──────────────────
+    const excludeList = Array.isArray(exclude) ? exclude : [];
+    const excludeText = excludeList.length > 0
+      ? ` 반드시 이 단어들은 제외해: ${excludeList.join(", ")}`
+      : "";
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -85,7 +116,7 @@ export default async function handler(req, res) {
         max_tokens: 250,
         messages: [{
           role: "user",
-          content: `"${topic}"와 연상되는 단어 ${count}개를 쉼표로만 구분해서 답해. 설명 없이 단어만. 각 단어 2~6글자.`
+          content: `"${topic}"와 연상되는 단어 ${count}개를 쉼표로만 구분해서 답해. 설명 없이 단어만. 각 단어 2~6글자.${excludeText}`
         }]
       })
     });
@@ -97,11 +128,12 @@ export default async function handler(req, res) {
     const words = raw
       .split(/[,，、\n]/)
       .map(w => w.trim().replace(/^\d+\.\s*/, "").trim())
-      .filter(w => w.length > 0 && w.length <= 10)
+      .filter(w => w.length > 0 && w.length <= 10 && !excludeList.includes(w))
       .slice(0, count);
 
-    res.status(200).json({ words });
+    return res.status(200).json({ words });
+
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: e.message });
   }
 }
