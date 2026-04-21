@@ -14,8 +14,17 @@ export default async function handler(req, res) {
 
   async function ai(content, max=300){
     const r = await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST", headers:{"Content-Type":"application/json","x-api-key":process.env.ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"},
-      body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:max,messages:[{role:"user",content}]})
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key":process.env.ANTHROPIC_API_KEY,
+        "anthropic-version":"2023-06-01"
+      },
+      body:JSON.stringify({
+        model:"claude-haiku-4-5-20251001",
+        max_tokens:max,
+        messages:[{role:"user",content}]
+      })
     });
     const d = await r.json();
     return d.content?.map(b=>b.text||"").join("")||"";
@@ -25,10 +34,18 @@ export default async function handler(req, res) {
     // ── 채팅 모드
     if(mode==="chat"){
       const r = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json","x-api-key":process.env.ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"},
-        body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:250,
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key":process.env.ANTHROPIC_API_KEY,
+          "anthropic-version":"2023-06-01"
+        },
+        body:JSON.stringify({
+          model:"claude-haiku-4-5-20251001",
+          max_tokens:250,
           system:`사용자가 "${(path||[]).join("→")}" 탐색해서 "${fw}"에 도달했어. ${pp} 스타일로 짧게 대화해.`,
-          messages:[...(history||[]).map(m=>({role:m.role,content:m.content||m.text})),{role:"user",content:message}]})
+          messages:[...(history||[]).map(m=>({role:m.role,content:m.content||m.text})),{role:"user",content:message}]
+        })
       });
       const d = await r.json();
       return res.json({reply:d.content?.map(b=>b.text||"").join("")||"다시 물어봐!"});
@@ -42,7 +59,9 @@ export default async function handler(req, res) {
 
     // ── 결과 제안 모드
     if(mode==="suggest"){
-      const investSection = isInvest ? `"invest":{"theme":"투자 테마 2~3가지","stocks":"관련 종목 3~5개 (참고용)","etf":"관련 ETF 1~2개","mindset":"투자 마인드셋 1~2문장","disclaimer":"⚠️ 참고용 정보이며 투자 권유가 아닙니다. 최종 결정은 본인의 몫입니다."}` : `"invest":null`;
+      const investSection = isInvest
+        ? `"invest":{"theme":"투자 테마 2~3가지","stocks":"관련 종목 3~5개 (참고용)","etf":"관련 ETF 1~2개","mindset":"투자 마인드셋 1~2문장","disclaimer":"⚠️ 참고용 정보이며 투자 권유가 아닙니다. 최종 결정은 본인의 몫입니다."}`
+        : `"invest":null`;
 
       const [main, ltr, emo] = await Promise.all([
         ai(`브레인스토밍 경로: "${path.join("→")}". ${pp} 스타일로 JSON만 답해:\n{"action":"할 행동 2문장","mood":"마음가짐 2문장","job":"추천 직업 3가지","todo":"① ② ③ 할 일","tip":"핵심 인사이트","story":"탐색 여정 이야기 3~4문장",${investSection}}`, 1200),
@@ -50,24 +69,57 @@ export default async function handler(req, res) {
         ai(`"${path.join("→")}" 경로로 감정 분석. JSON만: {"emoji":"이모지1개","label":"감정 한 단어","desc":"2문장","color":"파스텔 헥스컬러"}`, 150),
       ]);
 
+      let emotion = null;
+      try { emotion = JSON.parse(emo.replace(/```json|```/g,"").trim()); } catch {}
+
       try {
         const parsed = JSON.parse(main.replace(/```json|```/g,"").trim());
-        let emotion = null;
-        try { emotion = JSON.parse(emo.replace(/```json|```/g,"").trim()); } catch {}
         return res.json({...parsed, letter: ltr, emotion});
       } catch {
-        return res.json({action:"한 가지부터 시작해봐!",mood:"편안하게 있어봐.",job:"창의적인 역할들이 잘 맞아.",todo:"① 기록하기\n② 찾아보기\n③ 실천하기",tip:"이 흐름 속에 답이 있어.",story:`${path[0]}에서 시작한 여정이 ${topic}에 닿았어.`,letter:ltr,emotion:null,invest:null});
+        return res.json({
+          action:"한 가지부터 시작해봐!",
+          mood:"편안하게 있어봐.",
+          job:"창의적인 역할들이 잘 맞아.",
+          todo:"① 기록하기\n② 찾아보기\n③ 실천하기",
+          tip:"이 흐름 속에 답이 있어.",
+          story:`${path[0]}에서 시작한 여정이 ${topic}에 닿았어.`,
+          letter: ltr,
+          emotion,
+          invest: null
+        });
       }
     }
 
-    // ── 연상 단어 생성
+    // ── 연상 단어 생성 (버그 수정: exclude 관대하게 처리)
     const excludeList = Array.isArray(exclude) ? exclude : [];
-    const excludeText = excludeList.length > 0 ? ` 반드시 제외: ${excludeList.join(", ")}` : "";
-    const raw = await ai(`"${topic}"와 연상되는 창의적이고 신선한 단어 ${count}개를 쉼표로만 구분해서 답해. 설명 없이 단어만. 각 단어 2~6글자.${excludeText}`, 250);
-    const words = raw.split(/[,，、\n]/).map(w=>w.trim().replace(/^\d+\.\s*/,"").trim()).filter(w=>w.length>0&&w.length<=10&&!excludeList.includes(w)).slice(0,count);
-    return res.json({words});
+
+    // 충분한 단어를 얻기 위해 요청 수를 더 넉넉하게
+    const requestCount = Math.min((count || 8) + excludeList.length + 3, 20);
+    const excludeText = excludeList.length > 0
+      ? ` 이 단어들은 포함하지 마: ${excludeList.join(", ")}.`
+      : "";
+
+    const raw = await ai(
+      `"${topic}"와 연상되는 창의적이고 신선한 단어 ${requestCount}개를 쉼표로만 구분해서 답해. 설명 없이 단어만. 각 단어 2~6글자.${excludeText}`,
+      300
+    );
+
+    let words = raw
+      .split(/[,，、\n]/)
+      .map(w => w.trim().replace(/^\d+\.\s*/, "").trim())
+      .filter(w => w.length > 0 && w.length <= 10)
+      .slice(0, count);
+
+    // exclude 필터 적용 (단어가 충분하면 적용, 부족하면 완화)
+    const filtered = words.filter(w => !excludeList.includes(w));
+    if (filtered.length >= 2) {
+      words = filtered.slice(0, count);
+    }
+    // 그래도 부족하면 원본 사용 (exclude 무시)
+
+    return res.json({ words });
 
   } catch(e) {
-    return res.status(500).json({error:e.message});
+    return res.status(500).json({error: e.message});
   }
 }
